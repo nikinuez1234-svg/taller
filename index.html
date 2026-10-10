@@ -1,53 +1,67 @@
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
-    };
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Admin</title>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; padding: 2rem; }
+        .container { max-width: 800px; margin: auto; background: #1e293b; padding: 2rem; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { border: 1px solid #334155; padding: 12px; text-align: left; }
+        th { background: #0f172a; color: #10b981; }
+        .btn-borrar { background: #ef4444; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px;}
+        .btn-editar { background: #eab308; color: #0f172a; font-weight: bold; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; margin-right: 8px;}
+        .btn-act { background: #3b82f6; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Centro de Control REST</h1>
+        <button class="btn-act" onclick="cargarDatos()">🔄 Extraer Datos (GET)</button>
+        <table>
+            <thead><tr><th>Matrícula</th><th>Nombre</th><th>Fecha</th><th>Acciones</th></tr></thead>
+            <tbody id="tabla-body"></tbody>
+        </table>
+    </div>
+    <script>
+        const URL = "https://TU-WORKER.TU-USUARIO.workers.dev"; // Reemplaza aquí
+        
+        async function cargarDatos() {
+            const tbody = document.getElementById("tabla-body");
+            const res = await fetch(URL);
+            const datos = await res.json();
+            tbody.innerHTML = "";
+            datos.forEach(r => {
+                tbody.innerHTML += `<tr>
+                    <td>${r.matricula}</td>
+                    <td>${r.nombre}</td>
+                    <td>${r.fecha}</td>
+                    <td>
+                        <button class="btn-editar" onclick="editar('${r.matricula}', '${r.nombre}')">✏️ Editar</button>
+                        <button class="btn-borrar" onclick="borrar('${r.matricula}')">🗑️ Eliminar</button>
+                    </td>
+                </tr>`;
+            });
+        }
 
-    if (request.method === "OPTIONS") return new Response("OK", { headers: corsHeaders });
+        async function editar(matricula, nombreActual) {
+            const nuevoNombre = prompt(`Ingresa el nuevo nombre para la matrícula ${matricula}:`, nombreActual);
+            if (nuevoNombre && nuevoNombre !== nombreActual) {
+                await fetch(URL, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ matricula: matricula, nombre: nuevoNombre })
+                });
+                cargarDatos();
+            }
+        }
 
-    // CREATE (POST)
-    if (request.method === "POST") {
-      const formData = await request.formData();
-      const matricula = formData.get("matricula");
-      const registro = { matricula, nombre: "Admin", fecha: new Date().toLocaleString() };
-      await env.CONTACTOS.put(matricula, JSON.stringify(registro));
-      return new Response(`✅ Guardado`, { headers: corsHeaders });
-    }
-
-    // READ (GET)
-    if (request.method === "GET") {
-      const list = await env.CONTACTOS.list();
-      let records = [];
-      for (let key of list.keys) {
-        const value = await env.CONTACTOS.get(key.name);
-        records.push(JSON.parse(value));
-      }
-      return new Response(JSON.stringify(records), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // UPDATE (PUT)
-    if (request.method === "PUT") {
-      const body = await request.json();
-      if (body.matricula && body.nombre) {
-        const registro = { matricula: body.matricula, nombre: body.nombre, fecha: new Date().toLocaleString() };
-        await env.CONTACTOS.put(body.matricula, JSON.stringify(registro));
-        return new Response(`✅ Actualizado`, { headers: corsHeaders });
-      }
-      return new Response("Faltan datos", { status: 400, headers: corsHeaders });
-    }
-
-    // DELETE (DELETE)
-    if (request.method === "DELETE") {
-      const matriculaABorrar = url.searchParams.get("matricula");
-      if (matriculaABorrar) {
-        await env.CONTACTOS.delete(matriculaABorrar);
-        return new Response(`🗑️ Registro eliminado.`, { headers: corsHeaders });
-      }
-    }
-    return new Response("API CRUD Activa", { headers: corsHeaders });
-  }
-};
+        async function borrar(matricula) {
+            if(confirm(`¿Seguro que deseas borrar la matrícula ${matricula}?`)) {
+                await fetch(`${URL}?matricula=${matricula}`, { method: "DELETE" });
+                cargarDatos();
+            }
+        }
+    </script>
+</body>
+</html>
